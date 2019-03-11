@@ -65,7 +65,7 @@ def gradle_arch_mode(repo_folder: Path, is_x64: bool):
     with open(build_gradle) as f:
         backup = f.read()
     try:
-        with open(build_gradle, "w") as f:
+        with open(build_gradle, "r+") as f:
             f.writelines(map(replace_fn, f))
         yield
     finally:
