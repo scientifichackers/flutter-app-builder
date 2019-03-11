@@ -1,16 +1,26 @@
-from flask import request
+from multiprocessing import Process
+
 from flask import Flask
+from flask import request
+
+import app_builder
 
 app = Flask(__name__)
 
-@app.route("/")
-def hello_world():
-    return "Hello, World!"
 
-@app.route("/on_push", methods=["POST"])
+@app.route("/do_build", methods=["POST"])
 def on_push():
-    print("Got push with: {0}".format(request.get_json()))
-    return "Hello, World!"
+    data = request.get_json()
+
+    print(f"Got build request: {data}")
+
+    Process(
+        target=app_builder.do_build,
+        args=(data["project"]["git_http_url"], data["project"]["name"]),
+    ).start()
+
+    return "OK"
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=80)
