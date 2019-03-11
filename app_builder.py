@@ -77,6 +77,10 @@ def gradle_arch_mode(repo_folder: Path, is_x64: bool):
 def temp_repo_folder(repo_name: str) -> Generator[Path, None, None]:
     repo_folder = TMP_DIR / repo_name
     try:
+        rmtree(repo_folder)
+    except FileNotFoundError:
+        pass
+    try:
         yield repo_folder
     finally:
         # try:
