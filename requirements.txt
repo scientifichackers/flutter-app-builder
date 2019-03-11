@@ -4,17 +4,10 @@
 #
 #    pip-compile -v requirements.in
 #
-ansimarkup==1.4.0         # via better-exceptions-fork, loguru
-better-exceptions-fork==0.2.1.post6  # via loguru
 click==7.0                # via flask
-colorama==0.4.1           # via ansimarkup, loguru
 flask==1.0.2
 itsdangerous==1.1.0       # via flask
 jinja2==2.10              # via flask
-loguru==0.2.5
 markupsafe==1.1.1         # via jinja2
-pexpect==4.6.0
-ptyprocess==0.6.0         # via pexpect
-pygments==2.3.1           # via better-exceptions-fork
 python-decouple==3.1
 werkzeug==0.14.1          # via flask

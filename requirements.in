@@ -1,4 +1,2 @@
 flask
-loguru
 python-decouple
-pexpect
