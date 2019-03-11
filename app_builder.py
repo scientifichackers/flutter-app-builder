@@ -65,11 +65,11 @@ def gradle_arch_mode(repo_folder: Path, is_x64: bool):
     with open(build_gradle) as f:
         backup = f.read()
     try:
-        with open(build_gradle) as f:
+        with open(build_gradle, "w") as f:
             f.writelines(map(replace_fn, f))
         yield
     finally:
-        with open(build_gradle) as f:
+        with open(build_gradle, "w") as f:
             f.write(backup)
 
 
@@ -132,7 +132,7 @@ def build_release_apk(repo_folder: Path, is_x64: bool):
         print_cmd(cmd)
         subprocess.check_call(cmd)
 
-    with open(repo_folder / "build_number") as f:
+    with open(repo_folder / "build_number", "w") as f:
         f.write(str(build_number + 1))
 
 
