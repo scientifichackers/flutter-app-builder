@@ -26,6 +26,7 @@ def git_pull(git_url: str, repo_folder: Path):
         "--single-branch",
         repo_folder,
     ]
+    cmd = list(map(str, cmd))
     print_cmd(cmd)
 
     child = pexpect.spawn(cmd[0], args=cmd[1:])
