@@ -67,18 +67,14 @@ def gradle_arch_mode(project_root: Path, is_x64: bool):
         replace_fn = use_32_bit
 
     with open(build_gradle) as f:
-        backup = f.read()
+        lines = f.readlines()
     try:
-        with open(build_gradle, "r+") as f:
-            lines = f.readlines()
-            f.seek(0)
+        with open(build_gradle, "w") as f:
             f.writelines(map(replace_fn, lines))
-        with open(build_gradle) as f:
-            print(f.read())
         yield
     finally:
         with open(build_gradle, "w") as f:
-            f.write(backup)
+            f.writelines(lines)
 
 
 @contextmanager
