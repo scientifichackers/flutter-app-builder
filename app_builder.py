@@ -59,17 +59,20 @@ def use_32_bit(line: str) -> str:
 
 @contextmanager
 def gradle_arch_mode(project_root: Path, is_x64: bool):
+    build_gradle = project_root / "android" / "app" / "build.gradle"
+
     if is_x64:
         replace_fn = use_64_bit
     else:
         replace_fn = use_32_bit
 
-    build_gradle = project_root / "android" / "app" / "build.gradle"
     with open(build_gradle) as f:
         backup = f.read()
     try:
         with open(build_gradle, "r+") as f:
-            f.writelines(map(replace_fn, f))
+            lines = f.readlines()
+            f.seek(0)
+            f.writelines(map(replace_fn, lines))
         yield
     finally:
         with open(build_gradle, "w") as f:
