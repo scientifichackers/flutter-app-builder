@@ -28,7 +28,7 @@ def print_cmd(cmd: List[str]):
     print("$ " + " ".join(map(str, cmd)))
 
 
-def git_pull(git_url: str, repo_folder: Path):
+def git_pull(git_url: str, project_root: Path):
     url: ParseResult = urlparse(git_url)
     cmd = [
         "git",
@@ -37,10 +37,10 @@ def git_pull(git_url: str, repo_folder: Path):
         "--branch",
         GIT_BRANCH,
         "--single-branch",
-        repo_folder,
+        project_root,
     ]
     print(
-        f"$ git clone {url.scheme}://{GIT_USERNAME}:*****@{url.netloc}/{url.path} --branch {GIT_BRANCH} --single-branch {repo_folder}"
+        f"$ git clone {url.scheme}://{GIT_USERNAME}:*****@{url.netloc}/{url.path} --branch {GIT_BRANCH} --single-branch {project_root}"
     )
     return subprocess.check_call(cmd)
 
@@ -58,13 +58,13 @@ def use_32_bit(line: str) -> str:
 
 
 @contextmanager
-def gradle_arch_mode(repo_folder: Path, is_x64: bool):
+def gradle_arch_mode(project_root: Path, is_x64: bool):
     if is_x64:
         replace_fn = use_64_bit
     else:
         replace_fn = use_32_bit
 
-    build_gradle = repo_folder / "android" / "app" / "build.gradle"
+    build_gradle = project_root / "android" / "app" / "build.gradle"
     with open(build_gradle) as f:
         backup = f.read()
     try:
@@ -77,24 +77,24 @@ def gradle_arch_mode(repo_folder: Path, is_x64: bool):
 
 
 @contextmanager
-def temp_repo_folder(repo_name: str) -> Generator[Path, None, None]:
-    repo_folder = TMP_DIR / repo_name
+def temp_project_root(repo_name: str) -> Generator[Path, None, None]:
+    project_root = TMP_DIR / repo_name
     try:
-        rmtree(repo_folder)
+        rmtree(project_root)
     except FileNotFoundError:
         pass
     try:
-        yield repo_folder
+        yield project_root
     finally:
         # try:
-        #     rmtree(repo_folder)
+        #     rmtree(project_root)
         # except FileNotFoundError:
         #     pass
         pass
 
 
-def build_release_apk(repo_folder: Path, is_x64: bool):
-    release_dir = repo_folder / "build" / "app" / "outputs" / "apk" / "release"
+def build_release_apk(project_root: Path, is_x64: bool):
+    release_dir = project_root / "build" / "app" / "outputs" / "apk" / "release"
 
     suffix = ""
     if is_x64:
@@ -104,10 +104,10 @@ def build_release_apk(repo_folder: Path, is_x64: bool):
     if is_x64:
         name = "x64"
 
-    with open(repo_folder / "pubspec.yaml") as f:
+    with open(project_root / "pubspec.yaml") as f:
         version = yaml.load(f)["version"]
 
-    with open(repo_folder / "build_number") as f:
+    with open(project_root / "build_number") as f:
         build_number = int(f.read().strip())
 
     for cmd in (
@@ -138,25 +138,24 @@ def build_release_apk(repo_folder: Path, is_x64: bool):
         ],
     ):
         print_cmd(cmd)
-        subprocess.check_call(cmd)
+        subprocess.check_call(cmd, cwd=project_root)
 
-    with open(repo_folder / "build_number", "w") as f:
+    with open(project_root / "build_number", "w") as f:
         f.write(str(build_number + 1))
 
 
 def do_build(repo_url: str, repo_name: str):
-    with temp_repo_folder(repo_name) as repo_folder:
-        git_pull(repo_url, repo_folder)
-
+    with temp_project_root(repo_name) as project_root:
+        git_pull(repo_url, project_root)
         for is_x64 in False, True:
-            with gradle_arch_mode(repo_folder, is_x64):
-                build_release_apk(repo_folder, is_x64)
+            with gradle_arch_mode(project_root, is_x64):
+                build_release_apk(project_root, is_x64)
 
 
-def flutter_packages_get(repo_folder: Path):
+def flutter_packages_get(project_root: Path):
     cmd = [FLUTTER_PATH, "packages", "get"]
     print_cmd(cmd)
-    return subprocess.check_call(cmd, cwd=repo_folder)
+    return subprocess.check_call(cmd, cwd=project_root)
 
 
 def run(ctx: zproc.Context):
