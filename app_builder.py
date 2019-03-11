@@ -4,15 +4,18 @@ from pathlib import Path
 from shutil import rmtree
 from typing import List, Generator
 from urllib.parse import ParseResult, urlparse
-import yaml
 
+import yaml
 import zproc
 from decouple import config
 
 GIT_USERNAME = config("GIT_USERNAME")
 GIT_PASSWORD = config("GIT_PASSWORD")
 GIT_BRANCH = config("GIT_BRANCH")
+FLUTTER_PATH = Path(config("FLUTTER_PATH", default="flutter")).expanduser().absolute()
+
 OUTPUT_DIR = Path.home() / "app-builder-apks"
+
 
 TMP_DIR = Path.home() / ".tmp" / "flutter-app-builder"
 try:
@@ -89,6 +92,7 @@ def temp_repo_folder(repo_name: str) -> Generator[Path, None, None]:
         #     pass
         pass
 
+
 def build_release_apk(repo_folder: Path, is_x64: bool):
     release_dir = repo_folder / "build" / "app" / "outputs" / "apk" / "release"
 
@@ -108,7 +112,7 @@ def build_release_apk(repo_folder: Path, is_x64: bool):
 
     for cmd in (
         [
-            "flutter",
+            FLUTTER_PATH,
             "build",
             "apk",
             "--release",
@@ -150,7 +154,7 @@ def do_build(repo_url: str, repo_name: str):
 
 
 def flutter_packages_get(repo_folder: Path):
-    cmd = ["flutter", "packages", "get"]
+    cmd = [FLUTTER_PATH, "packages", "get"]
     print_cmd(cmd)
     return subprocess.check_call(cmd, cwd=repo_folder)
 
