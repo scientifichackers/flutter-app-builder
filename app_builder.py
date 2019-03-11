@@ -19,7 +19,7 @@ def print_cmd(cmd: List[str]):
 def git_pull(git_url: str, repo_folder: Path):
     cmd = [
         "git",
-        "pull",
+        "clone",
         git_url,
         "--branch",
         GIT_BRANCH,
