@@ -73,6 +73,8 @@ def gradle_arch_mode(project_root: Path, is_x64: bool):
             lines = f.readlines()
             f.seek(0)
             f.writelines(map(replace_fn, lines))
+        with open(build_gradle) as f:
+            print(f.read())
         yield
     finally:
         with open(build_gradle, "w") as f:
@@ -147,18 +149,19 @@ def build_release_apk(project_root: Path, is_x64: bool):
         f.write(str(build_number + 1))
 
 
-def do_build(repo_url: str, repo_name: str):
-    with temp_project_root(repo_name) as project_root:
-        git_pull(repo_url, project_root)
-        for is_x64 in False, True:
-            with gradle_arch_mode(project_root, is_x64):
-                build_release_apk(project_root, is_x64)
-
-
 def flutter_packages_get(project_root: Path):
     cmd = [FLUTTER_PATH, "packages", "get"]
     print_cmd(cmd)
     return subprocess.check_call(cmd, cwd=project_root)
+
+
+def do_build(repo_url: str, repo_name: str):
+    with temp_project_root(repo_name) as project_root:
+        git_pull(repo_url, project_root)
+        flutter_packages_get(project_root)
+        for is_x64 in False, True:
+            with gradle_arch_mode(project_root, is_x64):
+                build_release_apk(project_root, is_x64)
 
 
 def run(ctx: zproc.Context):
