@@ -25,7 +25,7 @@ def git_pull(git_url: str, repo_folder: Path):
     url: ParseResult = urlparse(git_url)
     cmd = [
         "git",
-        "pull",
+        "clone",
         f"{url.scheme}://{GIT_USERNAME}:{GIT_PASSWORD}@{url.netloc}/{url.path}",
         "--branch",
         GIT_BRANCH,
