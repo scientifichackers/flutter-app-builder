@@ -1,8 +1,6 @@
 import logging
-import os
 import secrets
 import shutil
-import stat
 import subprocess
 import traceback
 from contextlib import contextmanager
@@ -14,7 +12,6 @@ from urllib.parse import ParseResult, urlparse
 import yaml
 import zproc
 from decouple import config
-import requests
 
 
 def mkdir_p(path: Path):
@@ -183,33 +180,7 @@ def do_build(name: str, url: str, branch: str):
             build_release_apk(project, is_x64)
 
 
-def ensure_fontail():
-    latest = next(
-        filter(
-            lambda x: x["name"] == "frontail-linux",
-            requests.get(
-                "https://api.github.com/repos/mthenw/frontail/releases/latest"
-            ).json()["assets"],
-        )
-    )
-
-    frontail_path = TMP_DIR / f"frontail_{latest['id']}"
-    if not frontail_path.exists():
-        download_url = latest["browser_download_url"]
-        print(f"downloading latest frontail binary using url: `{download_url}`")
-        data = requests.get(download_url).content
-        with open(frontail_path, "wb") as f:
-            f.write(data)
-        os.chmod(frontail_path, stat.ST_MODE | stat.S_IEXEC)
-        print(f"downloaded frontail to: `{frontail_path}`")
-
-    return frontail_path
-
-
 def run(ctx: zproc.Context):
-    frontail = ensure_fontail()
-    subprocess.Popen([frontail, "--path", OUTPUT_DIR])
-
     ready_iter = ctx.create_state().when_truthy("is_ready")
 
     @ctx.spawn

@@ -1,5 +1,5 @@
 import zproc
-from flask import Flask
+from flask import Flask, Response, abort
 from flask import request
 
 import app_builder
@@ -22,6 +22,24 @@ def on_push():
     )
 
     return "OK"
+
+
+@app.route("/build_logs/<string:build_id>")
+def build_logs(build_id):
+    filename = build_id + ".log"
+    try:
+        logfile = next(
+            filter(lambda it: it.name == filename, app_builder.LOG_DIR.glob("*.log"))
+        )
+    except StopIteration:
+        abort(404)
+
+    def _():
+        with logfile.open() as f:
+            for line in f:
+                yield line + "<br/>"
+
+    return Response(_())
 
 
 if __name__ == "__main__":
