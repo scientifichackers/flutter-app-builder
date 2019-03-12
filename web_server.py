@@ -50,6 +50,7 @@ def build_logs(build_id: str):
     name, url, branch = request
 
     def _():
+        yield """<html><head><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body>"""
         yield f"<h3>Project: {name}</h3><h3>Branch: {branch}</h3><h3>Url: {url}</h3>"
         yield "<pre>"
 
@@ -71,7 +72,7 @@ def build_logs(build_id: str):
             if snapshot["completed"]:
                 break
 
-        yield "</pre>"
+        yield "</pre></body></html>"
 
     return Response(_())
 
