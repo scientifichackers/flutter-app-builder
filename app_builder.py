@@ -1,6 +1,7 @@
 import logging
 import select
 import shutil
+import socket
 import subprocess
 from contextlib import contextmanager
 from pathlib import Path
@@ -9,6 +10,7 @@ from urllib.parse import ParseResult, urlparse
 
 import yaml
 from decouple import config
+import telegram
 
 
 def mkdir_p(path: Path):
@@ -34,7 +36,7 @@ class GitProject(NamedTuple):
 
 GIT_USERNAME = config("GIT_USERNAME")
 GIT_PASSWORD = config("GIT_PASSWORD")
-FLUTTER_PATH = Path(config("FLUTTER_PATH", default="flutter")).expanduser().absolute()
+FLUTTER_PATH = Path(config("FLUTTER_PATH")).expanduser().absolute()
 OUTPUT_DIR = Path.home() / "flutter-app-builder-outputs"
 TMP_DIR = Path.home() / ".tmp" / "flutter-app-builder"
 LOG_DIR = TMP_DIR / "logs"
@@ -44,8 +46,14 @@ mkdir_p(TMP_DIR)
 mkdir_p(LOG_DIR)
 mkdir_p(OUTPUT_DIR)
 
-
 log = logging.getLogger(__name__)
+bot = telegram.Bot(token=config("TELEGRAM_API_TOKEN"))
+TELEGRAM_CHAT_ID = f"@{config('TELEGRAM_CHANNEL')}"
+
+
+with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+    sock.connect(("1.1.1.1", 80))
+    IP_ADDR = sock.getsockname()[0]
 
 
 def print_cmd(cmd: List[str]):
@@ -153,16 +161,20 @@ def build_release_apk(project: GitProject, is_x64: bool):
     print_cmd(cmd)
     run_cmd(cmd, cwd=project.root)
 
+    arch = "x64" if is_x64 else "x86"
+
     src = project.root / "build" / "app" / "outputs" / "apk" / "app.apk"
     output_dir = OUTPUT_DIR / project.name / project.branch
     mkdir_p(output_dir)
-    apk_name = (
-        f"{project.name}-x{'64' if is_x64 else '86'}-v{version}-{build_number}.apk"
-    )
+    apk_name = f"{project.name}-{arch}-v{version}-{build_number}.apk"
     dest = output_dir / apk_name
     shutil.copy2(src, dest)
 
     log.info(f"Saved built apk to: {dest}")
+    bot.send_message(
+        chat_id=TELEGRAM_CHAT_ID,
+        text=f"Built APK: http://{IP_ADDR}:8000/{dest.relative_to(OUTPUT_DIR)}",
+    )
 
 
 def flutter_packages_get(project: GitProject):

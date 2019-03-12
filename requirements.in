@@ -2,3 +2,4 @@ flask
 python-decouple
 zproc
 pyyaml
+python-telegram-bot

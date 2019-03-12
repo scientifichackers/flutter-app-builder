@@ -1,9 +1,12 @@
 import logging
+import subprocess
+import sys
 
 import zproc
 from flask import Flask, Response, abort
 from flask import request
 
+import app_builder
 import build_server
 
 app = Flask(__name__)
@@ -75,4 +78,7 @@ def build_logs(build_id: str):
 
 if __name__ == "__main__":
     build_server.run(ctx)
+    subprocess.Popen(
+        [sys.executable, "-m", "http.server", "8000"], cwd=app_builder.OUTPUT_DIR
+    )
     app.run(host="0.0.0.0", port=80)

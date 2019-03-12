@@ -1,11 +1,11 @@
 import logging
 import secrets
-import socket
 import traceback
 
+import telegram
 import zproc
 
-import app_builder
+from app_builder import log, bot, TELEGRAM_CHAT_ID, IP_ADDR, do_build
 
 
 @zproc.atomic
@@ -29,11 +29,6 @@ class ZProcHandler(logging.Handler):
         add_log_recrod(self._state, record.levelno, self.format(record))
 
 
-with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-    sock.connect(("1.1.1.1", 80))
-    IP_ADDR = sock.getsockname()[0]
-
-
 def run(ctx: zproc.Context):
     ready_iter = ctx.create_state().when_truthy("is_ready")
 
@@ -45,7 +40,6 @@ def run(ctx: zproc.Context):
         handler = ZProcHandler(ctx)
         formatter = logging.Formatter("[%(levelname)s] [%(asctime)s] %(message)s")
         handler.setFormatter(formatter)
-        log = app_builder.log
         log.addHandler(handler)
         log.setLevel(logging.DEBUG)
 
@@ -58,16 +52,33 @@ def run(ctx: zproc.Context):
             request_history[build_id] = request
             handler.set_build_id(build_id)
 
-            print(
-                f"building: {request} | build_id: {build_id} | logs: http://{IP_ADDR}/build_logs/{build_id}"
+            name, url, branch = request
+            logs_url = f"http://{ IP_ADDR }/build_logs/{build_id}"
+
+            print(f"building: {request} | build_id: {build_id} | logs: {logs_url}")
+
+            bot.send_message(
+                chat_id=TELEGRAM_CHAT_ID,
+                text="Started new build:\n"
+                f"Project: {name}\n"
+                f"Url:{url}\n"
+                f"Branch:{branch}\n"
+                f"Logs: {logs_url}",
             )
 
             try:
-                app_builder.do_build(*request)
+                do_build(*request)
             except Exception:
-                log.error(traceback.format_exc())
+                tb = traceback.format_exc()
+                bot.send_message(
+                    chat_id=TELEGRAM_CHAT_ID,
+                    text="Build failed!\n\n```\n" + tb + "\n```",
+                    parse_mode=telegram.ParseMode.MARKDOWN,
+                )
+                log.error(tb)
             else:
-                log.info(f"Build successful!")
+                bot.send_message(chat_id=TELEGRAM_CHAT_ID, text="Build successful!")
+                log.info("Build successful!")
             finally:
                 handler.mark_complete()
 
