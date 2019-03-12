@@ -29,7 +29,7 @@ def on_push():
 def fmt_log(levelno: int, msg: str) -> str:
     color = "black"
     if levelno == logging.DEBUG:
-        color = "purple"
+        color = "MediumOrchid"
     elif levelno == logging.ERROR:
         color = "red"
     return f"<span style='color: {color};'>{msg}</span><br>"
@@ -43,12 +43,12 @@ def build_logs(build_id: str):
     state.namespace = "build_info"
 
     try:
-        build_info = state[build_id]
+        name, url, branch = state[build_id]
     except KeyError:
         abort(404)
 
     def _():
-        yield f"<h2>Build logs for: {build_info}</h2>"
+        yield f"<h2>Build logs for project: {name}</h2><br><h5>(url: {url} branch: {branch})</h5>"
         yield "<pre>"
 
         state.namespace = build_id
