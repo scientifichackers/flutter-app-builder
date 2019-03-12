@@ -4,7 +4,7 @@ import zproc
 from flask import Flask, Response
 from flask import request
 
-import app_builder
+import build_server
 
 app = Flask(__name__)
 ctx = zproc.Context()
@@ -52,5 +52,5 @@ def build_logs(build_id):
 
 
 if __name__ == "__main__":
-    app_builder.run(ctx)
+    build_server.run(ctx)
     app.run(host="0.0.0.0", port=80)

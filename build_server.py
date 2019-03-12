@@ -1,5 +1,6 @@
 import logging
 import secrets
+import socket
 import traceback
 
 import zproc
@@ -19,9 +20,15 @@ class ZProcHandler(logging.Handler):
 
     def set_build_id(self, build_id: str):
         self._state.namespace = build_id
+        self._state["logs"] = []
 
     def emit(self, record: logging.LogRecord):
         add_log_recrod(self._state, record.levelno, self.format(record))
+
+
+with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+    sock.connect(("1.1.1.1", 80))
+    IP_ADDR = sock.getsockname()[0]
 
 
 def run(ctx: zproc.Context):
@@ -45,7 +52,9 @@ def run(ctx: zproc.Context):
             build_id = secrets.token_urlsafe(8)
             handler.set_build_id(build_id)
 
-            print(f"building: {request}, build_id: {build_id}")
+            print(
+                f"building: {request}, build_id: {build_id}, logs: `http://{IP_ADDR}/build_logs/{build_id}`"
+            )
             try:
                 app_builder.do_build(*request)
             except Exception:
