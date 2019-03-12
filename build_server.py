@@ -42,8 +42,9 @@ def run(ctx: zproc.Context):
         handler = ZProcHandler(ctx)
         formatter = logging.Formatter("[%(levelname)s] [%(asctime)s] %(message)s")
         handler.setFormatter(formatter)
-        app_builder.log.addHandler(handler)
-        app_builder.log.setLevel(logging.DEBUG)
+        log = app_builder.log
+        log.addHandler(handler)
+        log.setLevel(logging.DEBUG)
 
         state["is_ready"] = True
 
@@ -55,15 +56,14 @@ def run(ctx: zproc.Context):
             request_history[build_id] = request
 
             print(
-                f"building: {request}, build_id: {build_id}, logs: http://{IP_ADDR}/build_logs/{build_id}"
+                f"building: {request} | build_id: {build_id} | logs: http://{IP_ADDR}/build_logs/{build_id}"
             )
 
             try:
                 app_builder.do_build(*request)
             except Exception:
-                print(f"build failed, build_id: {build_id}")
-                traceback.print_exc()
+                log.error(traceback.format_exc())
             else:
-                print(f"build successful, build_id: {build_id}")
+                log.info(f"Build successful!")
 
     next(ready_iter)
