@@ -157,6 +157,7 @@ def build_release_apk(project: GitProject, is_x64: bool):
         "--release",
         f"--target-platform=android-arm{'64' if is_x64 else ''}",
         f"--build-number={build_number}",
+        "--verbose",
     ]
     print_cmd(cmd)
     run_cmd(cmd, cwd=project.root)
