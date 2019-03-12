@@ -55,7 +55,7 @@ def run(ctx: zproc.Context):
             name, url, branch = request
             logs_url = f"http://{ IP_ADDR }/build_logs/{build_id}"
 
-            print(f"building: {request} | build_id: {build_id} | logs: {logs_url}")
+            print(f"stared build: {request} | build_id: {build_id} | logs: {logs_url}")
 
             bot.send_message(
                 chat_id=TELEGRAM_CHAT_ID,
