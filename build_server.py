@@ -49,8 +49,8 @@ def run(ctx: zproc.Context):
             request = snapshot["next_build_request"]
 
             build_id = secrets.token_urlsafe(8)
-            request_history[build_id] = request
             handler.set_build_id(build_id)
+            request_history[build_id] = request
 
             name, url, branch = request
             logs_url = f"http://{ IP_ADDR }/build_logs/{build_id}"
