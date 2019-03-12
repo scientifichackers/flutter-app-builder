@@ -170,7 +170,7 @@ def do_build(name: str, url: str, branch: str):
         shutil.rmtree(project.root)
     except FileNotFoundError:
         pass
-    mkdir_p(project)
+    mkdir_p(project.root)
 
     try:
         git_pull(project)
