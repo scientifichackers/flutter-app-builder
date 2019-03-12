@@ -1,6 +1,8 @@
 import logging
+import os
 import secrets
 import shutil
+import stat
 import subprocess
 import traceback
 from contextlib import contextmanager
@@ -194,11 +196,12 @@ def ensure_fontail():
     frontail_path = TMP_DIR / f"frontail_{latest['id']}"
     if not frontail_path.exists():
         download_url = latest["browser_download_url"]
-        print(f"downloading latest `frontail` binary using url: {download_url}")
+        print(f"downloading latest frontail binary using url: `{download_url}`")
         data = requests.get(download_url).content
         with open(frontail_path, "wb") as f:
             f.write(data)
-        print(f"downloaded `frontail` to: {frontail_path}")
+        os.chmod(frontail_path, stat.ST_MODE | stat.S_IEXEC)
+        print(f"downloaded frontail to: `{frontail_path}`")
 
     return frontail_path
 
