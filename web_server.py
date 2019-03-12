@@ -82,7 +82,7 @@ def build_logs(build_id: str):
 if __name__ == "__main__":
     build_server.run(ctx)
 
-    @ctx.spawn
+    @ctx.spawn(pass_context=False)
     def file_server():
         reactor.listenTCP(8000, Site(File(app_builder.OUTPUT_DIR)))
         reactor.run()
