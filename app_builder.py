@@ -1,46 +1,61 @@
 import subprocess
 from contextlib import contextmanager
 from pathlib import Path
-from shutil import rmtree
-from typing import List, Generator
+import shutil
+from typing import List, Generator, NamedTuple
 from urllib.parse import ParseResult, urlparse
 
 import yaml
 import zproc
 from decouple import config
 
+
+def mkdir_p(path: Path):
+    try:
+        path.mkdir(parents=True)
+    except FileExistsError:
+        pass
+
+
+class GitProject(NamedTuple):
+    name: str
+    url: str
+    root: Path
+    branch: str
+
+
 GIT_USERNAME = config("GIT_USERNAME")
 GIT_PASSWORD = config("GIT_PASSWORD")
-GIT_BRANCH = config("GIT_BRANCH")
 FLUTTER_PATH = Path(config("FLUTTER_PATH", default="flutter")).expanduser().absolute()
 
-OUTPUT_DIR = Path.home() / "app-builder-apks"
-
-
+OUTPUT_DIR = Path.home() / "flutter-app-builder"
 TMP_DIR = Path.home() / ".tmp" / "flutter-app-builder"
-try:
-    TMP_DIR.mkdir(parents=True)
-except FileExistsError:
-    pass
+
+mkdir_p(OUTPUT_DIR)
+mkdir_p(TMP_DIR)
 
 
 def print_cmd(cmd: List[str]):
     print("$ " + " ".join(map(str, cmd)))
 
 
-def git_pull(git_url: str, project_root: Path):
-    url: ParseResult = urlparse(git_url)
+def git_pull(project: GitProject):
+    url: ParseResult = urlparse(project.url)
     cmd = [
         "git",
         "clone",
         f"{url.scheme}://{GIT_USERNAME}:{GIT_PASSWORD}@{url.netloc}/{url.path}",
         "--branch",
-        GIT_BRANCH,
+        project.branch,
         "--single-branch",
-        project_root,
+        project.root,
     ]
     print(
-        f"$ git clone {url.scheme}://{GIT_USERNAME}:*****@{url.netloc}/{url.path} --branch {GIT_BRANCH} --single-branch {project_root}"
+        f"$ git clone "
+        f"{url.scheme}://{GIT_USERNAME}:*****@{url.netloc}/{url.path} "
+        f"--branch {project.branch} "
+        f"--single-branch "
+        f"{project.root}"
     )
     return subprocess.check_call(cmd)
 
@@ -58,8 +73,8 @@ def use_32_bit(line: str) -> str:
 
 
 @contextmanager
-def gradle_arch_mode(project_root: Path, is_x64: bool):
-    build_gradle = project_root / "android" / "app" / "build.gradle"
+def gradle_arch_mode(project: GitProject, is_x64: bool):
+    build_gradle = project.root / "android" / "app" / "build.gradle"
 
     if is_x64:
         replace_fn = use_64_bit
@@ -77,11 +92,80 @@ def gradle_arch_mode(project_root: Path, is_x64: bool):
             f.writelines(lines)
 
 
+def build_release_apk(project: GitProject, is_x64: bool):
+    build_dir = project.root / "build" / "app" / "outputs" / "apk"
+
+    output_dir = OUTPUT_DIR / project.branch
+    mkdir_p(output_dir)
+
+    suffix = ""
+    if is_x64:
+        suffix = "64"
+
+    name = "x86"
+    if is_x64:
+        name = "x64"
+
+    with open(project.root / "pubspec.yaml") as f:
+        version = yaml.load(f)["version"]
+
+    with open(project.root / "build_number") as f:
+        build_number = int(f.read().strip()) + 1
+
+    for cmd in (
+        [
+            FLUTTER_PATH,
+            "build",
+            "apk",
+            "--release",
+            f"--target-platform=android-arm{suffix}",
+            f"--build-number={build_number}",
+        ],
+        # [
+        #     "zipalign",
+        #     "-v",
+        #     "-p",
+        #     "4",
+        #     release_dir / "app-release.apk",
+        #     release_dir / "app-release-aligned.apk",
+        # ],
+        # [
+        #     "apksigner",
+        #     "sign",
+        #     "--ks",
+        #     "meghshala-key.jks",
+        #     "--out",
+        #     OUTPUT_DIR / f"meghshala-prod-flutter-{name}-v{version}-{build_number}.apk",
+        #     release_dir / "app-release-aligned.apk",
+        # ],
+    ):
+        print_cmd(cmd)
+        subprocess.check_call(cmd, cwd=project.root)
+
+    apk_name = f"{project.name}-{name}-v{version}-{build_number}.apk"
+    shutil.copy2(build_dir / "app.apk", output_dir / apk_name)
+
+    with open(project.root / "build_number", "w") as f:
+        f.write(str(build_number))
+
+
+def flutter_packages_get(project: GitProject):
+    cmd = [FLUTTER_PATH, "packages", "get"]
+    print_cmd(cmd)
+    return subprocess.check_call(cmd, cwd=project.root)
+
+
+def flutter_clean(project: GitProject):
+    cmd = [FLUTTER_PATH, "clean"]
+    print_cmd(cmd)
+    return subprocess.check_call(cmd, cwd=project.root)
+
+
 @contextmanager
-def temp_project_root(repo_name: str) -> Generator[Path, None, None]:
-    project_root = TMP_DIR / repo_name
+def temp_project_root(name: str) -> Generator[Path, None, None]:
+    project_root = TMP_DIR / name
     try:
-        rmtree(project_root)
+        shutil.rmtree(project_root)
     except FileNotFoundError:
         pass
     try:
@@ -94,70 +178,15 @@ def temp_project_root(repo_name: str) -> Generator[Path, None, None]:
         pass
 
 
-def build_release_apk(project_root: Path, is_x64: bool):
-    release_dir = project_root / "build" / "app" / "outputs" / "apk" / "release"
-
-    suffix = ""
-    if is_x64:
-        suffix = "64"
-
-    name = "x86"
-    if is_x64:
-        name = "x64"
-
-    with open(project_root / "pubspec.yaml") as f:
-        version = yaml.load(f)["version"]
-
-    with open(project_root / "build_number") as f:
-        build_number = int(f.read().strip())
-
-    for cmd in (
-        [
-            FLUTTER_PATH,
-            "build",
-            "apk",
-            "--release",
-            f"--target-platform=android-arm{suffix}",
-            f"--build-number={build_number}",
-        ],
-        [
-            "zipalign",
-            "-v",
-            "-p",
-            "4",
-            release_dir / "app-release.apk",
-            release_dir / "app-release-aligned.apk",
-        ],
-        [
-            "apksigner",
-            "sign",
-            "--ks",
-            "meghshala-key.jks",
-            "--out",
-            OUTPUT_DIR / f"meghshala-prod-flutter-{name}-v{version}-{build_number}.apk",
-            release_dir / "app-release-aligned.apk",
-        ],
-    ):
-        print_cmd(cmd)
-        subprocess.check_call(cmd, cwd=project_root)
-
-    with open(project_root / "build_number", "w") as f:
-        f.write(str(build_number + 1))
-
-
-def flutter_packages_get(project_root: Path):
-    cmd = [FLUTTER_PATH, "packages", "get"]
-    print_cmd(cmd)
-    return subprocess.check_call(cmd, cwd=project_root)
-
-
-def do_build(repo_url: str, repo_name: str):
-    with temp_project_root(repo_name) as project_root:
-        git_pull(repo_url, project_root)
-        flutter_packages_get(project_root)
+def do_build(name: str, url: str, branch: str):
+    with temp_project_root(name) as project_root:
+        project = GitProject(name=name, url=url, branch=branch, root=project_root)
+        git_pull(project)
+        flutter_packages_get(project)
         for is_x64 in False, True:
-            with gradle_arch_mode(project_root, is_x64):
-                build_release_apk(project_root, is_x64)
+            flutter_clean(project)
+            with gradle_arch_mode(project, is_x64):
+                build_release_apk(project, is_x64)
 
 
 def run(ctx: zproc.Context):
