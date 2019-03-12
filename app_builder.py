@@ -118,11 +118,15 @@ def gradle_arch_mode(project: GitProject, is_x64: bool):
             f.writelines(lines)
 
 
+def version_to_build_number(version: str, is_x64: bool) -> int:
+    major, minor, patch = map(int, version.split("."))
+    return major * 10 ** 7 + minor * 10 ** 4 + patch * 10 + int(is_x64)
+
+
 def build_release_apk(project: GitProject, is_x64: bool):
     with open(project.root / "pubspec.yaml") as f:
         version = yaml.load(f)["version"]
-    with open(project.root / "build_number") as f:
-        build_number = int(f.read().strip()) + 1
+    build_number = version_to_build_number(version, is_x64)
 
     cmd = [
         FLUTTER_PATH,
@@ -145,9 +149,6 @@ def build_release_apk(project: GitProject, is_x64: bool):
     shutil.copy2(src, dest)
 
     logging.info(f"Saved built apk to: {dest}")
-
-    with open(project.root / "build_number", "w") as f:
-        f.write(str(build_number))
 
 
 def flutter_packages_get(project: GitProject):
