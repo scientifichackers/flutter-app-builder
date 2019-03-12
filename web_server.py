@@ -49,12 +49,12 @@ def build_logs(build_id: str):
         abort(404)
     name, url, branch = request
 
+    state.namespace = build_id
+
     def _():
         yield """<html><head><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body>"""
         yield f"<h3>Project: {name}</h3><h3>Branch: {branch}</h3><h3>Url: {url}</h3>"
         yield "<pre>"
-
-        state.namespace = build_id
 
         if "logs" in state:
             logs = state["logs"]
@@ -63,14 +63,15 @@ def build_logs(build_id: str):
         yield from (fmt_log(*it) for it in logs)
         last_len = len(logs)
 
-        for snapshot in state.when(
-            lambda it: len(it["logs"]) > last_len or it["completed"]
-        ):
-            logs = snapshot["logs"]
-            yield from (fmt_log(*it) for it in logs[last_len:])
-            last_len = len(logs)
-            if snapshot["completed"]:
-                break
+        if not state["completed"]:
+            for snapshot in state.when(
+                lambda it: len(it["logs"]) > last_len or it["completed"]
+            ):
+                logs = snapshot["logs"]
+                yield from (fmt_log(*it) for it in logs[last_len:])
+                last_len = len(logs)
+                if snapshot["completed"]:
+                    break
 
         yield "</pre></body></html>"
 
