@@ -59,11 +59,11 @@ def run(ctx: zproc.Context):
 
             bot.send_message(
                 chat_id=TELEGRAM_CHAT_ID,
-                text="Started new build!\n\n"
+                text=f"Started new build! ({build_id})\n\n"
                 f"Project ➙ {name}\n"
                 f"Branch ➙ {branch}\n"
                 f"Url ➙ {url}\n\n"
-                f"Logs ➙ {logs_url}",
+                f"Logs ➙ {logs_url}\n\n",
             )
 
             try:
@@ -72,13 +72,13 @@ def run(ctx: zproc.Context):
                 tb = traceback.format_exc()
                 bot.send_message(
                     chat_id=TELEGRAM_CHAT_ID,
-                    text="Build failed!\n\n```\n" + tb + "\n```",
+                    text=f"Build failed! ({build_id})\n\n```\n" + tb + "\n```",
                     parse_mode=telegram.ParseMode.MARKDOWN,
                 )
                 log.error(tb)
             else:
                 bot.send_message(chat_id=TELEGRAM_CHAT_ID, text="Build successful!")
-                log.info("Build successful!")
+                log.info(f"Build successful! ({build_id})")
             finally:
                 handler.mark_complete()
 
