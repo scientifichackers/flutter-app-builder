@@ -59,11 +59,11 @@ def run(ctx: zproc.Context):
 
             bot.send_message(
                 chat_id=TELEGRAM_CHAT_ID,
-                text="Started new build:\n"
-                f"Project: {name}\n"
-                f"Url:{url}\n"
-                f"Branch:{branch}\n"
-                f"Logs: {logs_url}",
+                text="Started new build!\n\n"
+                f"Project ➙ {name}\n"
+                f"Branch ➙ {branch}\n"
+                f"Url ➙ {url}\n\n"
+                f"Logs ➙ {logs_url}",
             )
 
             try:

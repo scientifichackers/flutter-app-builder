@@ -173,7 +173,7 @@ def build_release_apk(project: GitProject, is_x64: bool):
     log.info(f"Saved built apk to: {dest}")
     bot.send_message(
         chat_id=TELEGRAM_CHAT_ID,
-        text=f"Built APK: http://{IP_ADDR}:8000/{dest.relative_to(OUTPUT_DIR)}",
+        text=f"Built APK ➙ http://{IP_ADDR}:8000/{dest.relative_to(OUTPUT_DIR)}",
     )
 
 
