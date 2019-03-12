@@ -75,7 +75,7 @@ def run(ctx: zproc.Context):
                     text=f"Build failed! ({build_id})\n\n```\n" + tb + "\n```",
                     parse_mode=telegram.ParseMode.MARKDOWN,
                 )
-                log.error(tb)
+                log.error(f"Build failed! ({build_id})\n" + tb)
             else:
                 bot.send_message(chat_id=TELEGRAM_CHAT_ID, text="Build successful!")
                 log.info(f"Build successful! ({build_id})")

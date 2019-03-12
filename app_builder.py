@@ -147,7 +147,7 @@ def version_to_build_number(version: str, is_x64: bool) -> int:
 
 def build_release_apk(project: GitProject, is_x64: bool):
     with open(project.root / "pubspec.yaml") as f:
-        version = yaml.load(f)["version"]
+        version = yaml.load(f)["version"].split("+")[0]
     build_number = version_to_build_number(version, is_x64)
 
     cmd = [
