@@ -1,16 +1,13 @@
 import logging
-import secrets
 import select
 import shutil
 import subprocess
-import traceback
 from contextlib import contextmanager
 from pathlib import Path
 from typing import List, NamedTuple, Iterable, Callable
 from urllib.parse import ParseResult, urlparse
 
 import yaml
-import zproc
 from decouple import config
 
 
@@ -18,6 +15,13 @@ def mkdir_p(path: Path):
     try:
         path.mkdir(parents=True)
     except FileExistsError:
+        pass
+
+
+def rm_r(path: Path):
+    try:
+        shutil.rmtree(path)
+    except FileNotFoundError:
         pass
 
 
@@ -35,13 +39,17 @@ OUTPUT_DIR = Path.home() / "flutter-app-builder-outputs"
 TMP_DIR = Path.home() / ".tmp" / "flutter-app-builder"
 LOG_DIR = TMP_DIR / "logs"
 
-mkdir_p(OUTPUT_DIR)
+rm_r(TMP_DIR)
 mkdir_p(TMP_DIR)
 mkdir_p(LOG_DIR)
+mkdir_p(OUTPUT_DIR)
+
+
+log = logging.getLogger(__name__)
 
 
 def print_cmd(cmd: List[str]):
-    logging.info("$ " + " ".join(map(str, cmd)))
+    log.info("$ " + " ".join(map(str, cmd)))
 
 
 def pipe_stream_to_fn(stream: Iterable, log_fn: Callable):
@@ -61,9 +69,9 @@ def run_cmd(cmd: List[str], **kwargs) -> int:
             if not line:
                 continue
             if f is proc.stdout:
-                logging.debug(line)
+                log.debug(line)
             elif f is proc.stderr:
-                logging.error(line)
+                log.error(line)
 
     retcode = proc.wait()
     if retcode != 0:
@@ -82,7 +90,7 @@ def git_pull(project: GitProject):
         "--single-branch",
         project.root,
     ]
-    logging.info(
+    log.info(
         f"$ git clone "
         f"{url.scheme}://{GIT_USERNAME}:*****@{url.netloc}/{url.path} "
         f"--branch {project.branch} "
@@ -154,7 +162,7 @@ def build_release_apk(project: GitProject, is_x64: bool):
     dest = output_dir / apk_name
     shutil.copy2(src, dest)
 
-    logging.info(f"Saved built apk to: {dest}")
+    log.info(f"Saved built apk to: {dest}")
 
 
 def flutter_packages_get(project: GitProject):
@@ -171,11 +179,9 @@ def flutter_clean(project: GitProject):
 
 def do_build(name: str, url: str, branch: str):
     root = TMP_DIR / name / branch
-    try:
-        shutil.rmtree(root)
-    except FileNotFoundError:
-        pass
+    rm_r(root)
     mkdir_p(root)
+
     project = GitProject(name=name, url=url, branch=branch, root=root)
 
     git_pull(project)
@@ -185,30 +191,3 @@ def do_build(name: str, url: str, branch: str):
         flutter_clean(project)
         with gradle_arch_mode(project, is_x64):
             build_release_apk(project, is_x64)
-
-
-def run(ctx: zproc.Context):
-    ready_iter = ctx.create_state().when_truthy("is_ready")
-
-    @ctx.spawn
-    def build_server(ctx: zproc.Context):
-        state: zproc.State = ctx.create_state()
-        state["is_ready"] = True
-
-        for snapshot in state.when_change("next_build_request"):
-            request = snapshot["next_build_request"]
-
-            build_id = secrets.token_urlsafe(8)
-            logfile = LOG_DIR / (build_id + ".log")
-            logging.basicConfig(filename=logfile, level=logging.DEBUG)
-
-            print(f"building: {request}, build_id: {build_id}")
-            try:
-                do_build(*request)
-            except Exception:
-                print_cmd(f"build failed, build_id: {build_id}")
-                traceback.print_exc()
-            else:
-                print_cmd(f"build successful, build_id: {build_id}")
-
-    next(ready_iter)

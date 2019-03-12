@@ -1,5 +1,7 @@
+import logging
+
 import zproc
-from flask import Flask, Response, abort
+from flask import Flask, Response
 from flask import request
 
 import app_builder
@@ -26,20 +28,27 @@ def on_push():
 
 @app.route("/build_logs/<string:build_id>")
 def build_logs(build_id):
-    filename = build_id + ".log"
-    try:
-        logfile = next(
-            filter(lambda it: it.name == filename, app_builder.LOG_DIR.glob("*.log"))
-        )
-    except StopIteration:
-        abort(404)
+    state = ctx.create_state()
+    state.namespace = build_id
 
     def _():
-        with logfile.open() as f:
-            for line in f:
-                yield line + "<br/>"
+        last_len = 0
+        for snapshot in state.when_change("logs"):
+            logs = snapshot["logs"]
+            if last_len >= len(logs):
+                continue
 
-    return Response(_())
+            for levelno, msg in logs[last_len:]:
+                color = "black"
+                if levelno == logging.DEBUG:
+                    color = "purple"
+                elif levelno == logging.ERROR:
+                    color = "red"
+                yield f"<span style='color: {color};'>{msg}</span><br>"
+
+            last_len = len(logs)
+
+    return Response(_(), mimetype="text/html")
 
 
 if __name__ == "__main__":
