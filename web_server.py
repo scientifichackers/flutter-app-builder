@@ -41,7 +41,10 @@ def build_logs(build_id):
         state = ctx.create_state()
         state.namespace = build_id
 
-        logs = next(state.when_available("logs"))
+        if "logs" in state:
+            logs = state["logs"]
+        else:
+            logs = next(state.when_available("logs"))
         yield from (fmt_log(*it) for it in logs)
         last_len = len(logs)
 
