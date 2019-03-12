@@ -1,10 +1,11 @@
 import logging
-import subprocess
-import sys
 
 import zproc
 from flask import Flask, Response, abort
 from flask import request
+from twisted.internet import reactor
+from twisted.web.server import Site
+from twisted.web.static import File
 
 import app_builder
 import build_server
@@ -80,7 +81,10 @@ def build_logs(build_id: str):
 
 if __name__ == "__main__":
     build_server.run(ctx)
-    subprocess.Popen(
-        [sys.executable, "-m", "http.server", "8000"], cwd=app_builder.OUTPUT_DIR
-    )
+
+    @ctx.spawn
+    def file_server():
+        reactor.listenTCP(8000, Site(File(app_builder.OUTPUT_DIR)))
+        reactor.run()
+
     app.run(host="0.0.0.0", port=80)
