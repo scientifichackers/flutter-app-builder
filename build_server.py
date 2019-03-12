@@ -53,7 +53,7 @@ def run(ctx: zproc.Context):
             handler.set_build_id(build_id)
 
             print(
-                f"building: {request}, build_id: {build_id}, logs: `http://{IP_ADDR}/build_logs/{build_id}`"
+                f"building: {request}, build_id: {build_id}, logs: http://{IP_ADDR}/build_logs/{build_id}"
             )
             try:
                 app_builder.do_build(*request)

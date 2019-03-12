@@ -26,27 +26,29 @@ def on_push():
     return "OK"
 
 
+def fmt_log(levelno: int, msg: str) -> str:
+    color = "black"
+    if levelno == logging.DEBUG:
+        color = "purple"
+    elif levelno == logging.ERROR:
+        color = "red"
+    return f"<span style='color: {color};'>{msg}</span><br>"
+
+
 @app.route("/build_logs/<string:build_id>")
 def build_logs(build_id):
-    state = ctx.create_state()
-    state.namespace = build_id
-
     def _():
-        last_len = 0
-        for snapshot in state.when_change("logs"):
+        state = ctx.create_state()
+        state.namespace = build_id
+
+        logs = next(state.when_available("logs"))
+        yield from (fmt_log(*it) for it in logs)
+        last_len = len(logs)
+
+        for snapshot in state.when(lambda it: len(it["logs"]) > last_len):
             logs = snapshot["logs"]
-            if last_len >= len(logs):
-                continue
-
-            for levelno, msg in logs[last_len:]:
-                color = "black"
-                if levelno == logging.DEBUG:
-                    color = "purple"
-                elif levelno == logging.ERROR:
-                    color = "red"
-                yield f"<span style='color: {color};'>{msg}</span><br>"
-
-            last_len = len(logs)
+            yield from (fmt_log(*it) for it in logs[last_len:])
+            last_len = len(logs[last_len:])
 
     return Response(_(), mimetype="text/html")
 
