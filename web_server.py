@@ -65,7 +65,7 @@ def build_logs(build_id: str):
         for snapshot in state.when(lambda it: len(it["logs"]) > last_len):
             logs = snapshot["logs"]
             yield from (fmt_log(*it) for it in logs[last_len:])
-            last_len = len(logs[last_len:])
+            last_len = len(logs)
 
         yield "</pre>"
 
