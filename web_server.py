@@ -36,15 +36,19 @@ def fmt_log(levelno: int, msg: str) -> str:
 
 
 @app.route("/build_logs/<string:build_id>")
-def build_logs(build_id):
+def build_logs(build_id: str):
+    print(build_id)
+
     def _():
         state = ctx.create_state()
         state.namespace = build_id
 
+        print(state)
         if "logs" in state:
             logs = state["logs"]
         else:
             logs = next(state.when_available("logs"))
+        print(logs)
         yield from (fmt_log(*it) for it in logs)
         last_len = len(logs)
 
