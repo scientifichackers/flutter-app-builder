@@ -37,6 +37,7 @@ LOG_DIR = TMP_DIR / "logs"
 
 mkdir_p(OUTPUT_DIR)
 mkdir_p(TMP_DIR)
+mkdir_p(LOG_DIR)
 
 
 def print_cmd(cmd: List[str]):
@@ -164,7 +165,7 @@ def flutter_clean(project: GitProject):
 
 
 def do_build(name: str, url: str, branch: str):
-    root = TMP_DIR / branch / name
+    root = TMP_DIR / name / branch
     try:
         shutil.rmtree(root)
     except FileNotFoundError:
@@ -193,7 +194,7 @@ def run(ctx: zproc.Context):
             request = snapshot["next_build_request"]
 
             build_id = secrets.token_urlsafe(8)
-            logfile = LOG_DIR / build_id + ".log"
+            logfile = LOG_DIR / (build_id + ".log")
             logging.basicConfig(filename=logfile)
 
             print(f"building: {request}, build_id: {build_id}")
