@@ -59,10 +59,14 @@ def build_logs(build_id: str):
         yield from (fmt_log(*it) for it in logs)
         last_len = len(logs)
 
-        for snapshot in state.when(lambda it: len(it["logs"]) > last_len):
+        for snapshot in state.when(
+            lambda it: len(it["logs"]) > last_len or it["completed"]
+        ):
             logs = snapshot["logs"]
             yield from (fmt_log(*it) for it in logs[last_len:])
             last_len = len(logs)
+            if snapshot["completed"]:
+                break
 
         yield "</pre>"
 

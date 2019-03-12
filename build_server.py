@@ -20,7 +20,10 @@ class ZProcHandler(logging.Handler):
 
     def set_build_id(self, build_id: str):
         self._state.namespace = build_id
-        self._state["logs"] = []
+        self._state.update({"logs": [], "completed": False})
+
+    def mark_complete(self):
+        self._state["completed"] = True
 
     def emit(self, record: logging.LogRecord):
         add_log_recrod(self._state, record.levelno, self.format(record))
@@ -52,8 +55,8 @@ def run(ctx: zproc.Context):
             request = snapshot["next_build_request"]
 
             build_id = secrets.token_urlsafe(8)
-            handler.set_build_id(build_id)
             request_history[build_id] = request
+            handler.set_build_id(build_id)
 
             print(
                 f"building: {request} | build_id: {build_id} | logs: http://{IP_ADDR}/build_logs/{build_id}"
@@ -65,5 +68,7 @@ def run(ctx: zproc.Context):
                 log.error(traceback.format_exc())
             else:
                 log.info(f"Build successful!")
+            finally:
+                handler.mark_complete()
 
     next(ready_iter)
