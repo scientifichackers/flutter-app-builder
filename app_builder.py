@@ -1,8 +1,8 @@
+import shutil
 import subprocess
 from contextlib import contextmanager
 from pathlib import Path
-import shutil
-from typing import List, Generator, NamedTuple
+from typing import List, NamedTuple
 from urllib.parse import ParseResult, urlparse
 
 import yaml
@@ -161,32 +161,30 @@ def flutter_clean(project: GitProject):
     return subprocess.check_call(cmd, cwd=project.root)
 
 
-@contextmanager
-def temp_project_root(name: str) -> Generator[Path, None, None]:
-    project_root = TMP_DIR / name
+def do_build(name: str, url: str, branch: str):
+    project = GitProject(
+        name=name, url=url, branch=branch, root=TMP_DIR / branch / name
+    )
+
     try:
-        shutil.rmtree(project_root)
+        shutil.rmtree(project.root)
     except FileNotFoundError:
         pass
+    mkdir_p(project)
+
     try:
-        yield project_root
-    finally:
-        # try:
-        #     rmtree(project_root)
-        # except FileNotFoundError:
-        #     pass
-        pass
-
-
-def do_build(name: str, url: str, branch: str):
-    with temp_project_root(name) as project_root:
-        project = GitProject(name=name, url=url, branch=branch, root=project_root)
         git_pull(project)
         flutter_packages_get(project)
         for is_x64 in False, True:
             flutter_clean(project)
             with gradle_arch_mode(project, is_x64):
                 build_release_apk(project, is_x64)
+    finally:
+        # try:
+        #     rmtree(project_root)
+        # except FileNotFoundError:
+        #     pass
+        pass
 
 
 def run(ctx: zproc.Context):
