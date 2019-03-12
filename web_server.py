@@ -47,7 +47,7 @@ def build_logs(build_id: str):
     name, url, branch = request
 
     def _():
-        yield f"<h2>Build logs for project: {name}</h2><br><h5>(url: {url} branch: {branch})</h5>"
+        yield f"<h3>Project: {name}</h3><h3>Branch: {branch}</h3><h3>Url: {url}</h3>"
         yield "<pre>"
 
         state.namespace = build_id
