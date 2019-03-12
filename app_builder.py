@@ -1,12 +1,12 @@
 import logging
 import secrets
+import select
 import shutil
 import subprocess
 import traceback
 from contextlib import contextmanager
 from pathlib import Path
-from threading import Thread
-from typing import List, NamedTuple
+from typing import List, NamedTuple, Iterable, Callable
 from urllib.parse import ParseResult, urlparse
 
 import yaml
@@ -44,26 +44,31 @@ def print_cmd(cmd: List[str]):
     logging.info("$ " + " ".join(map(str, cmd)))
 
 
-def pipe_to_logger(stream, log_fn):
+def pipe_stream_to_fn(stream: Iterable, log_fn: Callable):
     with stream:
         for line in stream:
             log_fn(line)
 
 
-def run_cmd(cmd: List[str], *args, **kwargs):
-    p = subprocess.Popen(
-        cmd, *args, **kwargs, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+def run_cmd(cmd: List[str], **kwargs) -> int:
+    proc = subprocess.Popen(
+        cmd, **kwargs, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8"
     )
-    threads = [
-        Thread(target=pipe_to_logger, args=[p.stdout, logging.debug]),
-        Thread(target=pipe_to_logger, args=[p.stdout, logging.debug]),
-    ]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join()
-    p.wait()
-    assert p.returncode == 0
+
+    while proc.poll() is None:
+        for f in select.select([proc.stdout, proc.stderr], [], [])[0]:
+            line = f.readline().strip()
+            if not line:
+                continue
+            if f is proc.stdout:
+                logging.debug(line)
+            elif f is proc.stderr:
+                logging.error(line)
+
+    retcode = proc.wait()
+    if retcode != 0:
+        raise subprocess.CalledProcessError(retcode, cmd[0])
+    return retcode
 
 
 def git_pull(project: GitProject):
@@ -195,7 +200,7 @@ def run(ctx: zproc.Context):
 
             build_id = secrets.token_urlsafe(8)
             logfile = LOG_DIR / (build_id + ".log")
-            logging.basicConfig(filename=logfile)
+            logging.basicConfig(filename=logfile, level=logging.DEBUG)
 
             print(f"building: {request}, build_id: {build_id}")
             try:
