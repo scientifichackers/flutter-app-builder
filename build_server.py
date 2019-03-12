@@ -37,7 +37,7 @@ def run(ctx: zproc.Context):
     @ctx.spawn
     def build_server(ctx: zproc.Context):
         state: zproc.State = ctx.create_state()
-        info_state = state.fork(namespace="build_info")
+        request_history = state.fork(namespace="request_history")
 
         handler = ZProcHandler(ctx)
         formatter = logging.Formatter("[%(levelname)s] [%(asctime)s] %(message)s")
@@ -52,7 +52,7 @@ def run(ctx: zproc.Context):
 
             build_id = secrets.token_urlsafe(8)
             handler.set_build_id(build_id)
-            info_state[build_id] = f"{request}"
+            request_history[build_id] = request
 
             print(
                 f"building: {request}, build_id: {build_id}, logs: http://{IP_ADDR}/build_logs/{build_id}"
