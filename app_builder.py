@@ -1,13 +1,18 @@
+import logging
+import secrets
 import shutil
 import subprocess
+import traceback
 from contextlib import contextmanager
 from pathlib import Path
+from threading import Thread
 from typing import List, NamedTuple
 from urllib.parse import ParseResult, urlparse
 
 import yaml
 import zproc
 from decouple import config
+import requests
 
 
 def mkdir_p(path: Path):
@@ -27,16 +32,38 @@ class GitProject(NamedTuple):
 GIT_USERNAME = config("GIT_USERNAME")
 GIT_PASSWORD = config("GIT_PASSWORD")
 FLUTTER_PATH = Path(config("FLUTTER_PATH", default="flutter")).expanduser().absolute()
-
-OUTPUT_DIR = Path.home() / "flutter-app-builder"
+OUTPUT_DIR = Path.home() / "flutter-app-builder-outputs"
 TMP_DIR = Path.home() / ".tmp" / "flutter-app-builder"
+LOG_DIR = TMP_DIR / "logs"
 
 mkdir_p(OUTPUT_DIR)
 mkdir_p(TMP_DIR)
 
 
 def print_cmd(cmd: List[str]):
-    print("$ " + " ".join(map(str, cmd)))
+    logging.info("$ " + " ".join(map(str, cmd)))
+
+
+def pipe_to_logger(stream, log_fn):
+    with stream:
+        for line in stream:
+            log_fn(line)
+
+
+def run_cmd(cmd: List[str], *args, **kwargs):
+    p = subprocess.Popen(
+        cmd, *args, **kwargs, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    threads = [
+        Thread(target=pipe_to_logger, args=[p.stdout, logging.debug]),
+        Thread(target=pipe_to_logger, args=[p.stdout, logging.debug]),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    p.wait()
+    assert p.returncode == 0
 
 
 def git_pull(project: GitProject):
@@ -50,14 +77,14 @@ def git_pull(project: GitProject):
         "--single-branch",
         project.root,
     ]
-    print(
+    logging.info(
         f"$ git clone "
         f"{url.scheme}://{GIT_USERNAME}:*****@{url.netloc}/{url.path} "
         f"--branch {project.branch} "
         f"--single-branch "
         f"{project.root}"
     )
-    return subprocess.check_call(cmd)
+    run_cmd(cmd)
 
 
 def use_64_bit(line: str) -> str:
@@ -93,57 +120,32 @@ def gradle_arch_mode(project: GitProject, is_x64: bool):
 
 
 def build_release_apk(project: GitProject, is_x64: bool):
-    build_dir = project.root / "build" / "app" / "outputs" / "apk"
-
-    output_dir = OUTPUT_DIR / project.branch
-    mkdir_p(output_dir)
-
-    suffix = ""
-    if is_x64:
-        suffix = "64"
-
-    name = "x86"
-    if is_x64:
-        name = "x64"
-
     with open(project.root / "pubspec.yaml") as f:
         version = yaml.load(f)["version"]
-
     with open(project.root / "build_number") as f:
         build_number = int(f.read().strip()) + 1
 
-    for cmd in (
-        [
-            FLUTTER_PATH,
-            "build",
-            "apk",
-            "--release",
-            f"--target-platform=android-arm{suffix}",
-            f"--build-number={build_number}",
-        ],
-        # [
-        #     "zipalign",
-        #     "-v",
-        #     "-p",
-        #     "4",
-        #     release_dir / "app-release.apk",
-        #     release_dir / "app-release-aligned.apk",
-        # ],
-        # [
-        #     "apksigner",
-        #     "sign",
-        #     "--ks",
-        #     "meghshala-key.jks",
-        #     "--out",
-        #     OUTPUT_DIR / f"meghshala-prod-flutter-{name}-v{version}-{build_number}.apk",
-        #     release_dir / "app-release-aligned.apk",
-        # ],
-    ):
-        print_cmd(cmd)
-        subprocess.check_call(cmd, cwd=project.root)
+    cmd = [
+        FLUTTER_PATH,
+        "build",
+        "apk",
+        "--release",
+        f"--target-platform=android-arm{'64' if is_x64 else ''}",
+        f"--build-number={build_number}",
+    ]
+    print_cmd(cmd)
+    run_cmd(cmd, cwd=project.root)
 
-    apk_name = f"{project.name}-{name}-v{version}-{build_number}.apk"
-    shutil.copy2(build_dir / "app.apk", output_dir / apk_name)
+    src = project.root / "build" / "app" / "outputs" / "apk" / "app.apk"
+    output_dir = OUTPUT_DIR / project.name / project.branch
+    mkdir_p(output_dir)
+    apk_name = (
+        f"{project.name}-x{'64' if is_x64 else '86'}-v{version}-{build_number}.apk"
+    )
+    dest = output_dir / apk_name
+    shutil.copy2(src, dest)
+
+    logging.info(f"Saved built apk to: {dest}")
 
     with open(project.root / "build_number", "w") as f:
         f.write(str(build_number))
@@ -152,42 +154,58 @@ def build_release_apk(project: GitProject, is_x64: bool):
 def flutter_packages_get(project: GitProject):
     cmd = [FLUTTER_PATH, "packages", "get"]
     print_cmd(cmd)
-    return subprocess.check_call(cmd, cwd=project.root)
+    run_cmd(cmd, cwd=project.root)
 
 
 def flutter_clean(project: GitProject):
     cmd = [FLUTTER_PATH, "clean"]
     print_cmd(cmd)
-    return subprocess.check_call(cmd, cwd=project.root)
+    run_cmd(cmd, cwd=project.root)
 
 
 def do_build(name: str, url: str, branch: str):
-    project = GitProject(
-        name=name, url=url, branch=branch, root=TMP_DIR / branch / name
-    )
-
+    root = TMP_DIR / branch / name
     try:
-        shutil.rmtree(project.root)
+        shutil.rmtree(root)
     except FileNotFoundError:
         pass
-    mkdir_p(project.root)
+    mkdir_p(root)
+    project = GitProject(name=name, url=url, branch=branch, root=root)
 
-    try:
-        git_pull(project)
-        flutter_packages_get(project)
-        for is_x64 in False, True:
-            flutter_clean(project)
-            with gradle_arch_mode(project, is_x64):
-                build_release_apk(project, is_x64)
-    finally:
-        # try:
-        #     rmtree(project_root)
-        # except FileNotFoundError:
-        #     pass
-        pass
+    git_pull(project)
+    flutter_packages_get(project)
+
+    for is_x64 in False, True:
+        flutter_clean(project)
+        with gradle_arch_mode(project, is_x64):
+            build_release_apk(project, is_x64)
+
+
+def ensure_fontail():
+    latest = next(
+        filter(
+            lambda x: x["name"] == "frontail-linux",
+            requests.get(
+                "https://api.github.com/repos/mthenw/frontail/releases/latest"
+            ).json()["assets"],
+        )
+    )
+
+    frontail_path = TMP_DIR / f"frontail_{latest['id']}"
+    if not frontail_path.exists():
+        download_url = latest["browser_download_url"]
+        print(f"downloading latest `frontail` binary using url: {download_url}")
+        data = requests.get(download_url).content
+        with open(frontail_path, "wb") as f:
+            f.write(data)
+        print(f"downloaded `frontail` to: {frontail_path}")
+
+    return frontail_path
 
 
 def run(ctx: zproc.Context):
+    frontail = ensure_fontail()
+    subprocess.Popen([frontail, "--path", OUTPUT_DIR])
 
     ready_iter = ctx.create_state().when_truthy("is_ready")
 
@@ -195,9 +213,21 @@ def run(ctx: zproc.Context):
     def build_server(ctx: zproc.Context):
         state: zproc.State = ctx.create_state()
         state["is_ready"] = True
+
         for snapshot in state.when_change("next_build_request"):
             request = snapshot["next_build_request"]
-            print(f"building: {request}")
-            do_build(*request)
+
+            build_id = secrets.token_urlsafe(8)
+            logfile = LOG_DIR / build_id + ".log"
+            logging.basicConfig(filename=logfile)
+
+            print(f"building: {request}, build_id: {build_id}")
+            try:
+                do_build(*request)
+            except Exception:
+                print_cmd(f"build failed, build_id: {build_id}")
+                traceback.print_exc()
+            else:
+                print_cmd(f"build successful, build_id: {build_id}")
 
     next(ready_iter)
