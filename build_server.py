@@ -1,5 +1,6 @@
 import logging
 import traceback
+from textwrap import dedent
 
 import telegram
 import zproc
@@ -57,11 +58,18 @@ def run(ctx: zproc.Context):
             print(f"stared build: {request} | build_id: {git_hash} | logs: {logs_url}")
             bot.send_message(
                 chat_id=TELEGRAM_CHAT_ID,
-                text=f"Started new build! (`{git_hash}`)\n\n"
-                f"Project ➙ {name}\n"
-                f"Branch ➙ {branch}\n\n"
-                f"Url ➙ {url}\n\n"
-                f"Logs ➙ {logs_url}\n\n",
+                text=dedent(
+                    f"""
+                    Started new build! (`{git_hash}`)
+                    
+                    Project ➙ {name}
+                    Branch ➙ {branch}
+                    Url ➙ {url}
+                    
+                    [See logs]({logs_url})
+                    """
+                ),
+                parse_mode=telegram.ParseMode.MARKDOWN,
             )
 
             try:
@@ -70,7 +78,15 @@ def run(ctx: zproc.Context):
                 tb = traceback.format_exc()
                 bot.send_message(
                     chat_id=TELEGRAM_CHAT_ID,
-                    text=f"Build failed! (`{git_hash}`)\n\n```\n" + tb + "\n```",
+                    text=dedent(
+                        f"""
+                        Build failed! (`{git_hash}`)
+                        
+                        ```
+                        {tb}
+                        ```
+                        """
+                    ),
                     parse_mode=telegram.ParseMode.MARKDOWN,
                 )
                 log.error(f"Build failed! ({git_hash})\n" + tb)
