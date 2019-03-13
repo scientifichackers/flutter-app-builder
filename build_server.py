@@ -18,8 +18,8 @@ class ZProcHandler(logging.Handler):
         self._state = ctx.create_state()
         super().__init__()
 
-    def set_build_id(self, build_id: str):
-        self._state.namespace = build_id
+    def set_git_hash(self, git_hash: str):
+        self._state.namespace = git_hash
         self._state.update({"logs": [], "completed": False})
 
     def mark_complete(self):
@@ -48,38 +48,39 @@ def run(ctx: zproc.Context):
         for snapshot in state.when_change("next_build_request"):
             request = snapshot["next_build_request"]
 
-            build_id = secrets.token_urlsafe(8)
-            handler.set_build_id(build_id)
-            request_history[build_id] = request
+            name, url, branch, git_hash = request
 
-            name, url, branch = request
-            logs_url = f"http://{ IP_ADDR }/build_logs/{build_id}"
+            handler.set_git_hash(git_hash)
+            request_history[git_hash] = name, url, branch
 
-            print(f"stared build: {request} | build_id: {build_id} | logs: {logs_url}")
+            logs_url = f"http://{ IP_ADDR }/build_logs/{git_hash}"
+
+            print(f"stared build: {request} | build_id: {git_hash} | logs: {logs_url}")
             bot.send_message(
                 chat_id=TELEGRAM_CHAT_ID,
-                text=f"Started new build! ({build_id})\n\n"
+                text=f"Started new build! ({git_hash})\n\n"
                 f"Project ➙ {name}\n"
-                f"Branch ➙ {branch}\n"
+                f"Branch ➙ {branch}\n\n"
                 f"Url ➙ {url}\n\n"
                 f"Logs ➙ {logs_url}\n\n",
+                parse_mode=telegram.ParseMode.MARKDOWN,
             )
 
             try:
-                do_build(*request)
+                do_build(name, url, branch)
             except Exception:
                 tb = traceback.format_exc()
                 bot.send_message(
                     chat_id=TELEGRAM_CHAT_ID,
-                    text=f"Build failed! ({build_id})\n\n```\n" + tb + "\n```",
+                    text=f"Build failed! ({git_hash})\n\n```\n" + tb + "\n```",
                     parse_mode=telegram.ParseMode.MARKDOWN,
                 )
-                log.error(f"Build failed! ({build_id})\n" + tb)
-                print(f"Build failed! ({build_id})\n" + tb)
+                log.error(f"Build failed! ({git_hash})\n" + tb)
+                print(f"Build failed! ({git_hash})\n" + tb)
             else:
                 bot.send_message(chat_id=TELEGRAM_CHAT_ID, text="Build successful!")
-                log.info(f"Build successful! ({build_id})")
-                print(f"Build successful! ({build_id})")
+                log.info(f"Build successful! ({git_hash})")
+                print(f"Build successful! ({git_hash})")
             finally:
                 handler.mark_complete()
 

@@ -25,6 +25,7 @@ def on_push():
         data["project"]["name"],
         data["project"]["git_http_url"],
         data["ref"][len("refs/heads/") :],
+        data["checkout_sha"],
     )
 
     return "OK"
@@ -39,18 +40,18 @@ def fmt_log(levelno: int, msg: str) -> str:
     return f"<span style='color: {color};'>{msg}</span><br>"
 
 
-@app.route("/build_logs/<string:build_id>")
-def build_logs(build_id: str):
+@app.route("/build_logs/<string:git_hash>")
+def build_logs(git_hash: str):
     state = ctx.create_state()
 
     state.namespace = "request_history"
     try:
-        request = state[build_id]
+        request = state[git_hash]
     except KeyError:
         abort(404)
     name, url, branch = request
 
-    state.namespace = build_id
+    state.namespace = git_hash
 
     def _():
         yield """<html><head><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body>"""
