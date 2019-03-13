@@ -56,7 +56,6 @@ def run(ctx: zproc.Context):
             logs_url = f"http://{ IP_ADDR }/build_logs/{build_id}"
 
             print(f"stared build: {request} | build_id: {build_id} | logs: {logs_url}")
-
             bot.send_message(
                 chat_id=TELEGRAM_CHAT_ID,
                 text=f"Started new build! ({build_id})\n\n"
@@ -76,9 +75,11 @@ def run(ctx: zproc.Context):
                     parse_mode=telegram.ParseMode.MARKDOWN,
                 )
                 log.error(f"Build failed! ({build_id})\n" + tb)
+                print(f"Build failed! ({build_id})\n" + tb)
             else:
                 bot.send_message(chat_id=TELEGRAM_CHAT_ID, text="Build successful!")
                 log.info(f"Build successful! ({build_id})")
+                print(f"Build successful! ({build_id})")
             finally:
                 handler.mark_complete()
 
