@@ -62,7 +62,6 @@ def run(ctx: zproc.Context):
                 f"Branch ➙ {branch}\n\n"
                 f"Url ➙ {url}\n\n"
                 f"Logs ➙ {logs_url}\n\n",
-                parse_mode=telegram.ParseMode.MARKDOWN,
             )
 
             try:
