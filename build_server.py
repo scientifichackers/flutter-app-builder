@@ -1,5 +1,4 @@
 import logging
-import secrets
 import traceback
 
 import telegram
@@ -58,7 +57,7 @@ def run(ctx: zproc.Context):
             print(f"stared build: {request} | build_id: {git_hash} | logs: {logs_url}")
             bot.send_message(
                 chat_id=TELEGRAM_CHAT_ID,
-                text=f"Started new build! ({git_hash})\n\n"
+                text=f"Started new build! (`{git_hash}`)\n\n"
                 f"Project ➙ {name}\n"
                 f"Branch ➙ {branch}\n\n"
                 f"Url ➙ {url}\n\n"
@@ -72,13 +71,17 @@ def run(ctx: zproc.Context):
                 tb = traceback.format_exc()
                 bot.send_message(
                     chat_id=TELEGRAM_CHAT_ID,
-                    text=f"Build failed! ({git_hash})\n\n```\n" + tb + "\n```",
+                    text=f"Build failed! (`{git_hash}`)\n\n```\n" + tb + "\n```",
                     parse_mode=telegram.ParseMode.MARKDOWN,
                 )
                 log.error(f"Build failed! ({git_hash})\n" + tb)
                 print(f"Build failed! ({git_hash})\n" + tb)
             else:
-                bot.send_message(chat_id=TELEGRAM_CHAT_ID, text="Build successful!")
+                bot.send_message(
+                    chat_id=TELEGRAM_CHAT_ID,
+                    text=f"Build successful! (`{git_hash}`)",
+                    parse_mode=telegram.ParseMode.MARKDOWN,
+                )
                 log.info(f"Build successful! ({git_hash})")
                 print(f"Build successful! ({git_hash})")
             finally:
