@@ -1,21 +1,19 @@
 import logging
 
 import zproc
-from flask import Flask, Response, abort, stream_with_context
+from flask import Flask, Response, abort
 from flask import request
-from pip._vendor import requests
-from twisted.internet import reactor
-from twisted.web.server import Site
-from twisted.web.static import File
+from flask_autoindex import AutoIndex
 
-import app_builder
 import build_server
+from app_builder import OUTPUT_DIR
 
 app = Flask(__name__)
 ctx = zproc.Context()
+ax = AutoIndex(app, browse_root=OUTPUT_DIR, add_url_rules=False)
 
 
-@app.route("/do_build", methods=["POST"])
+@app.route("/do_build/", methods=["POST"])
 def on_push():
     data = request.get_json()
 
@@ -41,61 +39,67 @@ def fmt_log(levelno: int, msg: str) -> str:
     return f"<span style='color: {color};'>{msg}</span><br>"
 
 
-@app.route("/build_logs/<string:git_hash>")
+def stream_build_logs(state: zproc.State, name: str, branch: str, url: str):
+    yield f"""
+    <html>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body>
+        <h3>Project: {name}</h3>
+        <h3>Branch: {branch}</h3>
+        <h3>Url: {url}</h3>
+        <pre>
+    """
+    footer = "</pre></body></html>"
+
+    if "logs" in state:
+        logs = state["logs"]
+    else:
+        logs = next(state.when_available("logs"))
+    yield from (fmt_log(*it) for it in logs)
+    last_len = len(logs)
+
+    if state["completed"]:
+        yield footer
+        return
+
+    for snapshot in state.when(
+        lambda it: len(it["logs"]) > last_len or it["completed"]
+    ):
+        logs = snapshot["logs"]
+        yield from (fmt_log(*it) for it in logs[last_len:])
+        last_len = len(logs)
+        if snapshot["completed"]:
+            break
+
+    yield footer
+
+
+@app.route("/build_logs/<string:git_hash>/")
 def build_logs(git_hash: str):
     state = ctx.create_state()
 
     state.namespace = "request_history"
     try:
-        request = state[git_hash]
+        build_info = state[git_hash]
     except KeyError:
-        abort(404)
-    name, url, branch = request
+        return abort(404)
 
     state.namespace = git_hash
-
-    def _():
-        yield """<html><head><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body>"""
-        yield f"<h3>Project: {name}</h3><h3>Branch: {branch}</h3><h3>Url: {url}</h3>"
-        yield "<pre>"
-
-        if "logs" in state:
-            logs = state["logs"]
-        else:
-            logs = next(state.when_available("logs"))
-        yield from (fmt_log(*it) for it in logs)
-        last_len = len(logs)
-
-        if not state["completed"]:
-            for snapshot in state.when(
-                lambda it: len(it["logs"]) > last_len or it["completed"]
-            ):
-                logs = snapshot["logs"]
-                yield from (fmt_log(*it) for it in logs[last_len:])
-                last_len = len(logs)
-                if snapshot["completed"]:
-                    break
-
-        yield "</pre></body></html>"
-
-    return Response(_())
+    return Response(stream_build_logs(state, *build_info))
 
 
-@app.route("/<path:url>")
-def proxy(url):
-    req = requests.get(f"http://localhost:8000/{url}", stream=True)
-    return Response(
-        stream_with_context(req.iter_content()),
-        content_type=req.headers["content-type"],
-    )
+@app.route("/outputs/", defaults={"path": "/"})
+@app.route("/outputs/<path:path>/")
+def outputs(path):
+    return ax.render_autoindex(path)
 
 
 if __name__ == "__main__":
     build_server.run(ctx)
-
-    @ctx.spawn(pass_context=False)
-    def file_server():
-        reactor.listenTCP(8000, Site(File(app_builder.OUTPUT_DIR)))
-        reactor.run()
-
-    app.run(host="0.0.0.0", port=80)
+    try:
+        app.run(host="0.0.0.0", port=80)
+    except PermissionError:
+        print("Permission denied on port 80! Falling back to 8000...")
+        app.run(host="0.0.0.0", port=8000)
