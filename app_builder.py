@@ -49,11 +49,7 @@ mkdir_p(OUTPUT_DIR)
 log = logging.getLogger(__name__)
 bot = telegram.Bot(token=config("TELEGRAM_API_TOKEN"))
 TELEGRAM_CHAT_ID = f"@{config('TELEGRAM_CHANNEL')}"
-
-
-with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-    sock.connect(("1.1.1.1", 80))
-    IP_ADDR = sock.getsockname()[0]
+ROOT_DOMAIN = config("ROOT_DOMAIN")
 
 
 def print_cmd(cmd: List[str]):
@@ -174,7 +170,7 @@ def build_release_apk(project: GitProject, is_x64: bool):
     log.info(f"Saved built apk to: {dest}")
     bot.send_message(
         chat_id=TELEGRAM_CHAT_ID,
-        text=f"Built APK ➙ http://{IP_ADDR}:8000/{dest.relative_to(OUTPUT_DIR)}",
+        text=f"Built APK ➙ http://{ROOT_DOMAIN}/{dest.relative_to(OUTPUT_DIR)}",
     )
 
 

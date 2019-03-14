@@ -5,7 +5,7 @@ from textwrap import dedent
 import telegram
 import zproc
 
-from app_builder import log, bot, TELEGRAM_CHAT_ID, IP_ADDR, do_build
+from app_builder import log, bot, TELEGRAM_CHAT_ID, ROOT_DOMAIN, do_build
 
 
 @zproc.atomic
@@ -53,7 +53,7 @@ def run(ctx: zproc.Context):
             handler.set_git_hash(git_hash)
             request_history[git_hash] = name, url, branch
 
-            logs_url = f"http://{IP_ADDR}/build_logs/{git_hash}"
+            logs_url = f"http://{ROOT_DOMAIN}/build_logs/{git_hash}"
 
             print(f"stared build: {request} | logs: {logs_url}")
             bot.send_message(
