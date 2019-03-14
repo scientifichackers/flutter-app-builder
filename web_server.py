@@ -3,6 +3,7 @@ import logging
 import zproc
 from flask import Flask, Response, abort
 from flask import request
+from pip._vendor import requests
 from twisted.internet import reactor
 from twisted.web.server import Site
 from twisted.web.static import File
@@ -78,6 +79,12 @@ def build_logs(git_hash: str):
         yield "</pre></body></html>"
 
     return Response(_())
+
+
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def proxy(path):
+    return requests.get(f"http://localhost:8000/{path}").content
 
 
 if __name__ == "__main__":

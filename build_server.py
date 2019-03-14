@@ -60,7 +60,8 @@ def run(ctx: zproc.Context):
                 chat_id=TELEGRAM_CHAT_ID,
                 text=dedent(
                     f"""
-                    Started new build! <`{git_hash}`>
+                    Started new build! 
+                    <`{git_hash}`>
                     
                     Project ➙ {name}
                     Branch ➙ {branch}
@@ -89,12 +90,12 @@ def run(ctx: zproc.Context):
                     ),
                     parse_mode=telegram.ParseMode.MARKDOWN,
                 )
-                log.error(f"Build failed! <{git_hash}>\n" + tb)
+                log.error(f"Build failed!\n<{git_hash}>\n{tb}")
                 print(f"Build failed! <{git_hash}>\n" + tb)
             else:
                 bot.send_message(
                     chat_id=TELEGRAM_CHAT_ID,
-                    text=f"Build successful! <`{git_hash}`>",
+                    text=f"Build successful!\n<`{git_hash}`>",
                     parse_mode=telegram.ParseMode.MARKDOWN,
                 )
                 log.info(f"Build successful! <{git_hash}>")
