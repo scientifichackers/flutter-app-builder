@@ -84,10 +84,7 @@ def build_logs(git_hash: str):
 @app.route("/<path:url>")
 def proxy(url):
     req = requests.get(f"http://localhost:8000/{url}", stream=True)
-    return Response(
-        stream_with_context(req.iter_content()),
-        content_type=req.headers["content-type"],
-    )
+    return Response(stream_with_context(req.iter_content()), headers=req.headers)
 
 
 if __name__ == "__main__":
