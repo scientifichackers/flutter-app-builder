@@ -63,9 +63,9 @@ def run(ctx: zproc.Context):
                     Started new build! 
                     <`{git_hash}`>
                     
-                    Project ➙ {name}
-                    Branch ➙ {branch}
-                    Url ➙ [git]({url})
+                    Project ➙ `{name}`
+                    Branch ➙ `{branch}`
+                    Url ➙ [Git]({url})
                     
                     [See logs]({logs_url})
                     """
