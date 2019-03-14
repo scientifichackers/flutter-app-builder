@@ -1,7 +1,7 @@
 import logging
 
 import zproc
-from flask import Flask, Response, abort
+from flask import Flask, Response, abort, stream_with_context
 from flask import request
 from pip._vendor import requests
 from twisted.internet import reactor
@@ -81,10 +81,13 @@ def build_logs(git_hash: str):
     return Response(_())
 
 
-@app.route("/", defaults={"path": ""})
-@app.route("/<path:path>")
-def proxy(path):
-    return requests.get(f"http://localhost:8000/{path}").content
+@app.route("/<path:url>")
+def proxy(url):
+    req = requests.get(f"http://localhost:8000/{url}", stream=True)
+    return Response(
+        stream_with_context(req.iter_content()),
+        content_type=req.headers["content-type"],
+    )
 
 
 if __name__ == "__main__":
