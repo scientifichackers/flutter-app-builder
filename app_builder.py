@@ -1,16 +1,15 @@
 import logging
 import select
 import shutil
-import socket
 import subprocess
 from contextlib import contextmanager
 from pathlib import Path
 from typing import List, NamedTuple, Iterable, Callable
 from urllib.parse import ParseResult, urlparse
 
+import telegram
 import yaml
 from decouple import config
-import telegram
 
 
 def mkdir_p(path: Path):
@@ -187,7 +186,7 @@ def flutter_clean(project: GitProject):
 
 
 def do_build(name: str, url: str, branch: str):
-    root = TMP_DIR / name / branch
+    root = TMP_DIR / "projects" / name / branch
     rm_r(root)
     mkdir_p(root)
 
