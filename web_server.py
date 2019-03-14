@@ -10,7 +10,7 @@ from app_builder import OUTPUT_DIR
 
 app = Flask(__name__)
 ctx = zproc.Context()
-ax = AutoIndex(app, browse_root=OUTPUT_DIR, add_url_rules=False)
+ax = AutoIndex(app, browse_root=OUTPUT_DIR)
 
 
 @app.route("/do_build/", methods=["POST"])
@@ -88,12 +88,6 @@ def build_logs(git_hash: str):
 
     state.namespace = git_hash
     return Response(stream_build_logs(state, *build_info))
-
-
-@app.route("/outputs/", defaults={"path": "/"})
-@app.route("/outputs/<path:path>/")
-def outputs(path):
-    return ax.render_autoindex(path)
 
 
 if __name__ == "__main__":
