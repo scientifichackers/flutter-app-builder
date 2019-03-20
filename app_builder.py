@@ -115,6 +115,13 @@ def use_32_bit(line: str) -> str:
     return line
 
 
+def is_arch_specific(project: GitProject):
+    build_gradle = project.root / "android" / "app" / "build.gradle"
+    with open(build_gradle) as f:
+        content = f.read()
+    return "arm65-v8a" in content and "armeabi-v7a" in content
+
+
 @contextmanager
 def gradle_arch_mode(project: GitProject, is_x64: bool):
     build_gradle = project.root / "android" / "app" / "build.gradle"
@@ -195,7 +202,11 @@ def do_build(name: str, url: str, branch: str):
     git_pull(project)
     flutter_packages_get(project)
 
-    for is_x64 in False, True:
+    if is_arch_specific(project):
+        for is_x64 in False, True:
+            flutter_clean(project)
+            with gradle_arch_mode(project, is_x64):
+                build_release_apk(project, is_x64)
+    else:
         flutter_clean(project)
-        with gradle_arch_mode(project, is_x64):
-            build_release_apk(project, is_x64)
+        build_release_apk(project, False)
