@@ -119,7 +119,7 @@ def is_arch_specific(project: GitProject):
     build_gradle = project.root / "android" / "app" / "build.gradle"
     with open(build_gradle) as f:
         content = f.read()
-    return "arm65-v8a" in content and "armeabi-v7a" in content
+    return "arm64-v8a" in content and "armeabi-v7a" in content
 
 
 @contextmanager
