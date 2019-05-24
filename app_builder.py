@@ -1,4 +1,5 @@
 import logging
+import re
 import select
 import shutil
 import subprocess
@@ -10,6 +11,12 @@ from urllib.parse import ParseResult, urlparse
 import telegram
 import yaml
 from decouple import config
+
+application_id_regex = re.compile(
+    r'(applicationId)(\s+)(\")([a-z][a-z0-9_]*(\.[a-z0-9_]+)+[0-9a-z_])(\")'
+)
+ARCH_64 = "arm64-v8a"
+ARCH_32 = "armeabi-v7a"
 
 
 def mkdir_p(path: Path):
@@ -104,13 +111,13 @@ def git_pull(project: GitProject):
 
 
 def use_64_bit(line: str) -> str:
-    if "arm64-v8a" in line:
+    if ARCH_64 in line:
         line = line.replace("/", "")
     return line
 
 
 def use_32_bit(line: str) -> str:
-    if "armeabi-v7a" in line:
+    if ARCH_32 in line:
         line = line.replace("/", "")
     return line
 
@@ -119,7 +126,7 @@ def is_arch_specific(project: GitProject):
     build_gradle = project.root / "android" / "app" / "build.gradle"
     with open(build_gradle) as f:
         content = f.read()
-    return "arm64-v8a" in content and "armeabi-v7a" in content
+    return ARCH_64 in content and ARCH_32 in content
 
 
 @contextmanager
@@ -140,6 +147,17 @@ def gradle_arch_mode(project: GitProject, is_x64: bool):
     finally:
         with open(build_gradle, "w") as f:
             f.writelines(lines)
+
+
+def extract_application_id(project: GitProject):
+    build_gradle = project.root / "android" / "app" / "build.gradle"
+    text = build_gradle.read_text()
+    try:
+        match = next(application_id_regex.finditer(text))
+    except StopIteration:
+        return project.name
+    else:
+        return match.groups()[3]
 
 
 def version_to_build_number(version: str, is_x64: bool) -> int:
@@ -169,7 +187,9 @@ def build_release_apk(project: GitProject, is_x64: bool):
     src = project.root / "build" / "app" / "outputs" / "apk" / "app.apk"
     output_dir = OUTPUT_DIR / project.name / project.branch
     mkdir_p(output_dir)
-    apk_name = f"{project.name}-{arch}-v{version}-{build_number}.apk"
+    application_id = extract_application_id(project)
+
+    apk_name = f"{application_id}-{arch}-v{version}-{build_number}.apk"
     dest = output_dir / apk_name
     shutil.copy2(src, dest)
 
